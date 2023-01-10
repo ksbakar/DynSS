@@ -6,10 +6,17 @@
 
 rm(list = ls())
 
-library(dplyr); library(data.table); library(spTimer); library(LaplacesDemon); 
-library(extraDistr); library(pbapply); library(MASS); 
-library(ggplot2); library(grid); library(gridExtra); library(ggridges); 
-
+#library(dplyr); library(data.table); library(spTimer); library(LaplacesDemon); 
+#library(extraDistr); library(pbapply); library(MASS); 
+#library(ggplot2); library(grid); library(gridExtra); library(ggridges); 
+package_list <- c("dplyr", "data.table", "spTimer", "LaplacesDemon", "extraDistr",
+                  "pbapply", "MASS", "ggplot2", "grid", "gridExtra", "ggridges")
+checkPkg <- function(package_list){
+  check_installed <- package_list[!(package_list %in% installed.packages()[ , "Package"])]
+  if(length(check_installed)) install.packages(check_installed)                        
+}
+checkPkg(package_list)
+  
 ## some source functions 
 
 gen_data_arm <- function(n=c(300),rand_pr=NULL,n_arm=NULL){
