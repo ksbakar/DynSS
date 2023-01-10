@@ -6,14 +6,19 @@
 
 rm(list = ls())
 
-#library(dplyr); library(data.table); library(spTimer); library(LaplacesDemon); 
-#library(extraDistr); library(pbapply); library(MASS); 
-#library(ggplot2); library(grid); library(gridExtra); library(ggridges); 
+##
 package_list <- c("dplyr", "data.table", "spTimer", "LaplacesDemon", "extraDistr",
                   "pbapply", "MASS", "ggplot2", "grid", "gridExtra", "ggridges")
 checkPkg <- function(package_list){
   check_installed <- package_list[!(package_list %in% installed.packages()[ , "Package"])]
-  if(length(check_installed)) install.packages(check_installed)                        
+  if(length(check_installed)) {
+    print("Installing required packages from CRAN ...")
+    install.packages(check_installed)
+    print("All required packages are installed in the working machine ...")
+  }
+  else{
+    print("All required packages are installed in the working machine ...")
+  }
 }
 checkPkg(package_list)
   
