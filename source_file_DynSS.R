@@ -79,7 +79,7 @@ EDSS_binodist_opt <- function(dat=NULL, rand_assignment=c(1,1),
                               prior_interest=list(c(1,4),c(1,1)), # first one is control, use beta-dist(alpha,beta)
                               prior_reference=list(c(1,1),c(1,1)),  # first one is control, use beta-dist(alpha,beta) 
                               n_grid=seq(100,200,1),
-                              EDSS_cost="kld", use_arm=1){
+                              EDSS_cost="mse", use_arm=1){
   ##
   ## prior_interest = informed prior 
   ## prior_reference = reference/objective/baseline prior (may be vague)
@@ -131,7 +131,7 @@ EDSS_binodist_opt <- function(dat=NULL, rand_assignment=c(1,1),
     ddat <- table(dat[1:n_grid[j],]$id_arm,dat[1:n_grid[j],]$y)
     res <- list()
     res[[pp]] = trial_binodist(y = ddat[pp,], beta_prior=c(prior_interest[,pp]))
-    bint <- rnorm(nRep,res[[1]]$post_theta_mn,res[[1]]$post_theta_sd)
+    bint <- rnorm(nRep,res[[pp]]$post_theta_mn,res[[pp]]$post_theta_sd)
     p_mse <- mean((bint-true_theta[1])^2)
     p_kld <- KLD(px=c(bint),py=rep(true_theta[1],each=nRep))$mean.sum.KLD
     ##
@@ -166,6 +166,47 @@ EDSS_binodist_opt <- function(dat=NULL, rand_assignment=c(1,1),
   ##
 }
 ##
+EDSS_simulation <- function(nSim=10, dat=NULL, rand_assignment=c(1,1), nRep=5000,
+                            true_theta=c(0.5,0.5),
+                            prior_interest=list(c(10,10),c(1,1)), # list function for all arms 
+                            prior_reference=list(c(1,1),c(1,1)), # list function for all arms 
+                            n_grid=seq(100,200,1), cost ="kld", use_arm=1,
+                            plot=TRUE){
+  ##
+  library(pbapply)
+  out <- pblapply(1:nSim, 
+                  function(x) EDSS_binodist_opt(dat=dat,
+                                                rand_assignment=rand_assignment,nRep=nRep,
+                                                true_theta=true_theta,prior_interest=prior_interest, # first one is control, use beta-dist(alpha,beta)
+                                                prior_reference=prior_reference,  # first one is control, use beta-dist(alpha,beta) 
+                                                n_grid=n_grid, EDSS_cost=cost, use_arm=use_arm)$store_valStat) 
+  ##
+  valStat <- sapply(out, function(x) as.matrix(x[]))
+  mn <- rowMeans(valStat)
+  valStat <- data.frame(matrix(c(mn),dim(out[[1]])[1],dim(out[[1]])[2]))
+  names(valStat) <- dimnames(out[[1]])[[2]]
+  ##
+  if(isTRUE(plot)){
+    library(ggplot2)
+    if(cost=="kld"){
+      pp = ggplot(valStat,aes(x=control_ss,y=kl_diff)) + geom_smooth() +
+        labs(x="Sample size",y="Kullback–Leibler divergence (KLD) differences")
+      print(pp)
+    }
+    else if(cost=="mse"){
+      pp = ggplot(valStat,aes(x=control_ss,y=mse_diff)) + geom_smooth() +
+        labs(x="Sample size",y="Mean squared error (MSE) differences")
+      print(pp)
+    }
+    else{
+      print("Define cost function using kld or mse\n")
+    }
+  }
+  ##
+  return(list(valStat=valStat))
+  ##
+}
+##
 trail_interim_binoEDSS <- function(
     trial_type = "noninf", # takes "noninf" and "sup"
     margin_of_error = 0.1, # percentage 
@@ -177,7 +218,7 @@ trail_interim_binoEDSS <- function(
     method=c("EDSS"), # can take EDSS "ECSS","NONE" 
     prior_intrest_arm=c("ctr"), # can take "ctr" or c("ctr","trt")
     true_theta=c(0.9,0.5), # first one is the success rate for control
-    cost = "kld", # kld or mse
+    cost = "mse", # kld or mse
     drop_arm_type=c("futility"), # can take either "futility", "efficacy", "none 
     D0=0.10, D1=0.90, sim=FALSE, mixture=TRUE) 
 {
@@ -492,11 +533,11 @@ trail_interim_binoEDSS <- function(
               ##
               for(arm in 1:K){
                 if(isTRUE(sim)){
-                  res_sim[[arm]] = trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]),sim=TRUE)$mc
+                  res_sim[[arm]] = trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]),sim=TRUE)$mc #
                   res_tmp[arm,] = c(mean(res_sim[[arm]]),sd(res_sim[[arm]]))
                 }
                 else{
-                  res_tmp[arm,] = unlist(trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]])))
+                  res_tmp[arm,] = unlist(trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]))) #
                 }
               }
               dimnames(res_tmp)[[2]] = c("post_theta_mn","post_theta_sd")
@@ -546,11 +587,11 @@ trail_interim_binoEDSS <- function(
             ##
             for(arm in 1:K){
               if(isTRUE(sim)){
-                res_sim[[arm]] = trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]),sim=TRUE)$mc
+                res_sim[[arm]] = trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]),sim=TRUE)$mc # 1
                 res_tmp[arm,] = c(mean(res_sim[[arm]]),sd(res_sim[[arm]]))
               }
               else{
-                res_tmp[arm,] = unlist(trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]])))
+                res_tmp[arm,] = unlist(trial_binodist(y = ddat[arm,], beta_prior=c(dyn_prior_interest[[1]][[arm]]))) # 1
               }
             }
             dimnames(res_tmp)[[2]] = c("post_theta_mn","post_theta_sd")
@@ -667,7 +708,7 @@ trail_interim_binoEDSS <- function(
 ##
 trail_interim_binoEDSS_simulator <- function(nSim=10,
                                              trial_type = "noninf", # takes "noninf" and "sup"
-                                             margin_of_error = 0.1, # percentage 
+                                             margin_of_error = 0.1, # percentage range (0 to 1)
                                              n_sample=c(100,rep(100,2)), 
                                              rand_assignment=c(1,1,1),
                                              nRep=5000, 
@@ -676,7 +717,6 @@ trail_interim_binoEDSS_simulator <- function(nSim=10,
                                              method=c("EDSS"), # can take EDSS "ECSS","NONE" 
                                              prior_intrest_arm=c("ctr"), # can take "ctr" or c("ctr","trt")
                                              true_theta=c(0.5,0.8,0.1), # first one is the success rate for control
-                                             cost = "kld", # kld or mse
                                              drop_arm_type=c("none"),
                                              D0=0.10, D1=0.90, 
                                              plot=TRUE, sim=FALSE, mixture=FALSE){
@@ -687,7 +727,7 @@ trail_interim_binoEDSS_simulator <- function(nSim=10,
   res <- pblapply(1:nSim, 
                   function(x) trail_interim_binoEDSS(
                     trial_type = trial_type, # takes "noninf" and "sup"
-                    margin_of_error = margin_of_error, # percentage 
+                    margin_of_error = margin_of_error, # percentage range (0 to 1)
                     n_sample = n_sample, 
                     rand_assignment = rand_assignment,
                     nRep = nRep, 
@@ -696,7 +736,6 @@ trail_interim_binoEDSS_simulator <- function(nSim=10,
                     method=method, # can take EDSS "ECSS","NONE" 
                     prior_intrest_arm=prior_intrest_arm, # can take "ctr" or c("ctr","trt")
                     true_theta = true_theta, # first one is the success rate for control
-                    cost = cost, # kld or mse
                     drop_arm_type = drop_arm_type,
                     D0 = D0, D1 = D1, sim=sim, mixture=mixture))
   ##
@@ -801,47 +840,6 @@ trail_interim_binoEDSS_simulator <- function(nSim=10,
   return(list(stat=dat,dyn_prior=dyn_prior,ref_prior=prior_reference,
               pr_decision=pr_decision, method=method, trial_type=trial_type,
               D0=D0, D1=D1))
-  ##
-}
-##
-EDSS_simulation <- function(nSim=10, dat=NULL, rand_assignment=c(1,1), nRep=5000,
-                            true_theta=c(0.5,0.5),
-                            prior_interest=list(c(10,10),c(1,1)), # list function for all arms 
-                            prior_reference=list(c(1,1),c(1,1)), # list function for all arms 
-                            n_grid=seq(100,200,1), cost ="kld", use_arm=1,
-                            plot=TRUE){
-  ##
-  library(pbapply)
-  out <- pblapply(1:nSim, 
-                  function(x) EDSS_binodist_opt(dat=dat,
-                                                rand_assignment=rand_assignment,nRep=nRep,
-                                                true_theta=true_theta,prior_interest=prior_interest, # first one is control, use beta-dist(alpha,beta)
-                                                prior_reference=prior_reference,  # first one is control, use beta-dist(alpha,beta) 
-                                                n_grid=n_grid, EDSS_cost=cost, use_arm=use_arm)$store_valStat) 
-  ##
-  valStat <- sapply(out, function(x) as.matrix(x[]))
-  mn <- rowMeans(valStat)
-  valStat <- data.frame(matrix(c(mn),dim(out[[1]])[1],dim(out[[1]])[2]))
-  names(valStat) <- dimnames(out[[1]])[[2]]
-  ##
-  if(isTRUE(plot)){
-    library(ggplot2)
-    if(cost=="kld"){
-      pp = ggplot(valStat,aes(x=control_ss,y=kl_diff)) + geom_smooth() +
-        labs(x="Sample size",y="Kullback–Leibler divergence (KLD) differences")
-      print(pp)
-    }
-    else if(cost=="mse"){
-      pp = ggplot(valStat,aes(x=control_ss,y=mse_diff)) + geom_smooth() +
-        labs(x="Sample size",y="Mean squared error (MSE) differences")
-      print(pp)
-    }
-    else{
-      print("Define cost function using kld or mse\n")
-    }
-  }
-  ##
-  return(list(valStat=valStat))
   ##
 }
 ##
@@ -1010,9 +1008,9 @@ plot_dynSSRand <- function(dat,true_theta){
 }
 ##
 fig_1 <- function(){
-  out1 <- EDSS_simulation(nSim=50,prior_interest=list(c(1,1),c(1,1)),plot=FALSE)
-  out2 <- EDSS_simulation(nSim=50,prior_interest=list(c(5,5),c(1,1)),plot=FALSE)
-  out3 <- EDSS_simulation(nSim=50,prior_interest=list(c(10,10),c(1,1)),plot=FALSE)
+  out1 <- EDSS_simulation(nSim=50,prior_interest=list(c(1,1),c(1,1)),plot=FALSE,cost="kld")
+  out2 <- EDSS_simulation(nSim=50,prior_interest=list(c(5,5),c(1,1)),plot=FALSE,cost="kld")
+  out3 <- EDSS_simulation(nSim=50,prior_interest=list(c(10,10),c(1,1)),plot=FALSE,cost="kld")
   out <- rbind(data.frame(out1$valStat,prior="Beta(1,1)"),
                data.frame(out2$valStat,prior="Beta(5,5)"),
                data.frame(out3$valStat,prior="Beta(10,10)"))
@@ -1103,7 +1101,8 @@ fig_3 <- function(){
   p_r1 <- ggplot(out_r1$stat,aes(x=interim,y=est_dyn_rand_pr_mn,color=arm,shape=arm)) +
     geom_point(size=2) + geom_smooth() + ylim(0,1) + 
     labs(y="Randomisation probability",x="Stage (t)",color="Arm",shape="Arm") +
-    scale_color_manual(values=safe_colorblind_palette)
+    scale_color_manual(values=safe_colorblind_palette) +
+    scale_x_continuous(breaks=c(1,2,3))
   p_r1 <- p_r1 + annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)") 
   ##
   out_r2 <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
@@ -1114,7 +1113,8 @@ fig_3 <- function(){
   p_r2 <- ggplot(out_r2$stat,aes(x=interim,y=est_dyn_rand_pr_mn,color=arm,shape=arm)) +
     geom_point(size=2) + geom_smooth() + ylim(0,1) +
     labs(y="Randomisation probability",x="Stage (t)",color="Arm",shape="Arm") +
-    scale_color_manual(values=safe_colorblind_palette)
+    scale_color_manual(values=safe_colorblind_palette) +
+    scale_x_continuous(breaks=c(1,2,3))
   p_r2 <- p_r2 + annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)")
   grid.arrange(p_r1,p_r2,nrow=1,ncol=2)
 }
@@ -1153,12 +1153,14 @@ fig_4 <- function(D=list(c(0.05,0.95))){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(superiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p2=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point() + ylim(49,153) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)") +
+    scale_x_continuous(breaks=c(1,2,3))
   ##
   out_sup_store <- list()
   store <- NULL
@@ -1187,12 +1189,14 @@ fig_4 <- function(D=list(c(0.05,0.95))){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(superiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p22=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point() + ylim(49,153) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)") +
+    scale_x_continuous(breaks=c(1,2,3))
   ##
   #grid.arrange(p1,p2,p11,p22,nrow=2,ncol=2)
   grid.arrange(arrangeGrob(p11, top = 'Dynamic method'),arrangeGrob(p22, top = 'Dynamic method'),
@@ -1200,7 +1204,156 @@ fig_4 <- function(D=list(c(0.05,0.95))){
                nrow=2,ncol=2)
 }
 ##
-fig_S3 <- function(D=list(c(0.05,0.99))){
+fig_5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.1){
+  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
+                                        "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+  n_sample <- c(100,100,100)
+  true_theta <- list(c(0.5,0.5),c(0.5,0.6),c(0.5,0.7),c(0.5,0.8),c(0.5,0.9))
+  rand_assignment <- c(1,1)
+                                        trial_type <- c("noninf")
+                                        method <- c("EDSS")
+                                        out_sup_store <- list()
+                                        store <- NULL
+                                        for(i in 1:length(true_theta)){
+                                          out_sup <- list()
+                                          for(j in 1:length(D)){
+                                            out_sup[[j]] <- trail_interim_binoEDSS_simulator(nSim=50, method=method, 
+                                                                                             n_sample = n_sample,
+                                                                                             rand_assignment = rand_assignment,
+                                                                                             true_theta = true_theta[[i]],
+                                                                                             prior_interest = list(c(26,26),c(1,1)), 
+                                                                                             prior_reference = list(c(1,1),c(1,1)),
+                                                                                             trial_type = trial_type,
+                                                                                             margin_of_error = margin_of_error,
+                                                                                             drop_arm_type=c("none"),
+                                                                                             D0=D[[j]][1],D1=D[[j]][2], 
+                                                                                             plot=FALSE)
+                                            tmp <- cbind(out_sup[[j]]$stat,true_theta[[i]][2]-true_theta[[i]][1],
+                                                         true_theta[[i]][1],true_theta[[i]][2],D[[j]][1],D[[j]][2])
+                                            names(tmp)[10:11] <- c("D0","D1")
+                                            store <- rbind(store, tmp)
+                                          }
+                                          out_sup_store[[i]] = out_sup
+                                        }
+                                        ##
+                                        p1=ggplot(store[store$arm==2,],aes(x=interim,y=D1)) +
+                                          geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
+                                          geom_point()+
+                                          labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
+                                          annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)") +
+                                          scale_x_continuous(breaks=c(1,2,3))
+                                        p2=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
+                                          geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
+                                          geom_point()+ylim(49,153) +
+                                          labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
+                                          annotate(geom="text",x=1.5, y=125, label="Beta(26,26)") +
+                                          scale_x_continuous(breaks=c(1,2,3))
+                                        ##
+                                        trial_type <- c("noninf")
+                                        method <- c("NONE")
+                                        out_sup_store <- list()
+                                        store <- NULL
+                                        for(i in 1:length(true_theta)){
+                                          out_sup <- list()
+                                          for(j in 1:length(D)){
+                                            out_sup[[j]] <- trail_interim_binoEDSS_simulator(nSim=50, method=method, 
+                                                                                             n_sample = n_sample,
+                                                                                             rand_assignment = rand_assignment,
+                                                                                             true_theta = true_theta[[i]],
+                                                                                             prior_interest = list(c(26,26),c(1,1)), 
+                                                                                             prior_reference = list(c(1,1),c(1,1)),
+                                                                                             trial_type = trial_type,
+                                                                                             margin_of_error = margin_of_error,
+                                                                                             drop_arm_type=c("none"),
+                                                                                             D0=D[[j]][1],D1=D[[j]][2], 
+                                                                                             plot=FALSE)
+                                            tmp <- cbind(out_sup[[j]]$stat,true_theta[[i]][2]-true_theta[[i]][1],
+                                                         true_theta[[i]][1],true_theta[[i]][2],D[[j]][1],D[[j]][2])
+                                            names(tmp)[10:11] <- c("D0","D1")
+                                            store <- rbind(store, tmp)
+                                          }
+                                          out_sup_store[[i]] = out_sup
+                                        }
+                                        ##
+                                        p11=ggplot(store[store$arm==2,],aes(x=interim,y=D1)) +
+                                          geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
+                                          geom_point()+
+                                          labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
+                                          annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)") +
+                                          scale_x_continuous(breaks=c(1,2,3))
+                                        p22=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
+                                          geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
+                                          geom_point()+ylim(49,151) +
+                                          labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
+                                          annotate(geom="text",x=1.5, y=125, label="Beta(26,26)") +
+                                          scale_x_continuous(breaks=c(1,2,3))
+                                        #grid.arrange(p1,p2,p11,p22,nrow=2,ncol=2)
+                                        grid.arrange(arrangeGrob(p1, top = 'Dynamic method'),arrangeGrob(p2, top = 'Dynamic method'),
+                                                     arrangeGrob(p11, top = 'Conventional method'),arrangeGrob(p22, top = 'Conventional method'),
+                                                     nrow=2,ncol=2)
+                                        
+}
+##
+fig_6 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975){
+  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
+                                        "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+                                        true_theta <- c(0.5,0.5,0.3,0.7)
+                                        out_f_sup <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
+                                                                                      rand_assignment=c(1,1,1,1),
+                                                                                      true_theta = true_theta,
+                                                                                      prior_interest=list(c(26,26),c(1,1),c(1,1),c(1,1)), 
+                                                                                      prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
+                                                                                      trial_type = "sup",
+                                                                                      drop_arm_type=drop_arm_type,
+                                                                                      D0=D0,D1=D1,plot=FALSE)
+                                        p1 = plot_dynSS(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=80, label="Beta(26,26)")
+                                        p2 = plot_dynRand(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(26,26)")
+                                        out_f_sup <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
+                                                                                      rand_assignment=c(1,1,1,1),
+                                                                                      true_theta = true_theta,
+                                                                                      prior_interest=list(c(42,10),c(1,1),c(1,1),c(1,1)), 
+                                                                                      prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
+                                                                                      trial_type = "sup",
+                                                                                      drop_arm_type=drop_arm_type,
+                                                                                      D0=D0,D1=D1,plot=FALSE)
+                                        p3 = plot_dynSS(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=80, label="Beta(42,10)")
+                                        p4 = plot_dynRand(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(42,10)")
+                                        #grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2,top = textGrob("Superiority trial (arm dropping for futility)",gp=gpar(fontsize=12,font=3)))
+                                        grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
+}
+##
+fig_7 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=0.10){
+  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
+                                        "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+                                        true_theta <- c(0.5,0.5,0.3,0.7)
+                                        out_f_noninf <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
+                                                                                         rand_assignment=c(1,1,1,1),
+                                                                                         true_theta = true_theta,
+                                                                                         prior_interest=list(c(26,26),c(1,1),c(1,1),c(1,1)), 
+                                                                                         prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
+                                                                                         trial_type = "noninf",
+                                                                                         margin_of_error = margin_of_error,
+                                                                                         drop_arm_type=drop_arm_type,
+                                                                                         D0=D0,D1=D1,plot=FALSE)
+                                        p1 = plot_dynSS(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=80, label="Beta(26,26)")
+                                        p2 = plot_dynRand(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(26,26)")
+                                        out_f_noninf <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
+                                                                                         rand_assignment=c(1,1,1,1),
+                                                                                         true_theta = true_theta,
+                                                                                         prior_interest=list(c(42,10),c(1,1),c(1,1),c(1,1)), 
+                                                                                         prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
+                                                                                         trial_type = "noninf",
+                                                                                         margin_of_error = margin_of_error,
+                                                                                         drop_arm_type=drop_arm_type,
+                                                                                         D0=D0,D1=D1,plot=FALSE)
+                                        p3 = plot_dynSS(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=80, label="Beta(42,10)")
+                                        p4 = plot_dynRand(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(42,10)")
+                                        #grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2,top = textGrob("Non-inferiority trial (arm dropping for futility)",gp=gpar(fontsize=12,font=3)))
+                                        grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
+}
+##
+##
+fig_S2 <- function(D=list(c(0.05,0.99))){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1234,12 +1387,14 @@ fig_S3 <- function(D=list(c(0.05,0.99))){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(superiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p2=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point() + ylim(49,153) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   ##
   out_sup_store <- list()
   store <- NULL
@@ -1268,12 +1423,14 @@ fig_S3 <- function(D=list(c(0.05,0.99))){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(superiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p22=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point() + ylim(49,153) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   ##
   #grid.arrange(p1,p2,p11,p22,nrow=2,ncol=2)
   grid.arrange(arrangeGrob(p11, top = 'Dynamic method'),arrangeGrob(p22, top = 'Dynamic method'),
@@ -1281,93 +1438,7 @@ fig_S3 <- function(D=list(c(0.05,0.99))){
                nrow=2,ncol=2)
 }
 ##
-fig_5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.1){
-  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
-                               "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
-  n_sample <- c(100,100,100)
-  true_theta <- list(c(0.5,0.5),c(0.5,0.6),c(0.5,0.7),c(0.5,0.8),c(0.5,0.9))
-  rand_assignment <- c(1,1)
-  trial_type <- c("noninf")
-  method <- c("EDSS")
-  out_sup_store <- list()
-  store <- NULL
-  for(i in 1:length(true_theta)){
-    out_sup <- list()
-    for(j in 1:length(D)){
-      out_sup[[j]] <- trail_interim_binoEDSS_simulator(nSim=50, method=method, 
-                                                       n_sample = n_sample,
-                                                       rand_assignment = rand_assignment,
-                                                       true_theta = true_theta[[i]],
-                                                       prior_interest = list(c(26,26),c(1,1)), 
-                                                       prior_reference = list(c(1,1),c(1,1)),
-                                                       trial_type = trial_type,
-                                                       margin_of_error = margin_of_error,
-                                                       drop_arm_type=c("none"),
-                                                       D0=D[[j]][1],D1=D[[j]][2], 
-                                                       plot=FALSE)
-      tmp <- cbind(out_sup[[j]]$stat,true_theta[[i]][2]-true_theta[[i]][1],
-                   true_theta[[i]][1],true_theta[[i]][2],D[[j]][1],D[[j]][2])
-      names(tmp)[10:11] <- c("D0","D1")
-      store <- rbind(store, tmp)
-    }
-    out_sup_store[[i]] = out_sup
-  }
-  ##
-  p1=ggplot(store[store$arm==2,],aes(x=interim,y=D1)) +
-    geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
-    geom_point()+
-    labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)")
-  p2=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
-    geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
-    geom_point()+ylim(49,153) +
-    labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)")
-  ##
-  trial_type <- c("noninf")
-  method <- c("NONE")
-  out_sup_store <- list()
-  store <- NULL
-  for(i in 1:length(true_theta)){
-    out_sup <- list()
-    for(j in 1:length(D)){
-      out_sup[[j]] <- trail_interim_binoEDSS_simulator(nSim=50, method=method, 
-                                                       n_sample = n_sample,
-                                                       rand_assignment = rand_assignment,
-                                                       true_theta = true_theta[[i]],
-                                                       prior_interest = list(c(26,26),c(1,1)), 
-                                                       prior_reference = list(c(1,1),c(1,1)),
-                                                       trial_type = trial_type,
-                                                       margin_of_error = margin_of_error,
-                                                       drop_arm_type=c("none"),
-                                                       D0=D[[j]][1],D1=D[[j]][2], 
-                                                       plot=FALSE)
-      tmp <- cbind(out_sup[[j]]$stat,true_theta[[i]][2]-true_theta[[i]][1],
-                   true_theta[[i]][1],true_theta[[i]][2],D[[j]][1],D[[j]][2])
-      names(tmp)[10:11] <- c("D0","D1")
-      store <- rbind(store, tmp)
-    }
-    out_sup_store[[i]] = out_sup
-  }
-  ##
-  p11=ggplot(store[store$arm==2,],aes(x=interim,y=D1)) +
-    geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
-    geom_point()+
-    labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(26,26)")
-  p22=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
-    geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
-    geom_point()+ylim(49,151) +
-    labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(26,26)")
-  #grid.arrange(p1,p2,p11,p22,nrow=2,ncol=2)
-  grid.arrange(arrangeGrob(p1, top = 'Dynamic method'),arrangeGrob(p2, top = 'Dynamic method'),
-               arrangeGrob(p11, top = 'Conventional method'),arrangeGrob(p22, top = 'Conventional method'),
-               nrow=2,ncol=2)
-  
-}
-##
-fig_S4 <- function(D=list(c(0.050,0.950)),margin_of_error=0.05){
+fig_S3 <- function(D=list(c(0.050,0.950)),margin_of_error=0.01){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1403,12 +1474,14 @@ fig_S4 <- function(D=list(c(0.050,0.950)),margin_of_error=0.05){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p2=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+ylim(47,153) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   ##
   trial_type <- c("noninf")
   method <- c("NONE")
@@ -1440,77 +1513,19 @@ fig_S4 <- function(D=list(c(0.050,0.950)),margin_of_error=0.05){
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+
     labs(y="Pr(non-inferiority)",x="Stage (t)",color="Effect size") +
-    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=0.25, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   p22=ggplot(store[store$arm==1,],aes(x=interim,y=est_sample_mn)) +
     geom_line(aes(color=as.factor(V2),shape=as.factor(V2))) +
     geom_point()+ylim(47,151) +
     labs(y="Sample size for control arm",x="Stage (t)",color="Effect size")+
-    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)")
+    annotate(geom="text",x=1.5, y=125, label="Beta(42,10)") +
+    scale_x_continuous(breaks=c(1,2,3))
   #grid.arrange(p1,p2,p11,p22,nrow=2,ncol=2)
   grid.arrange(arrangeGrob(p1, top = 'Dynamic method'),arrangeGrob(p2, top = 'Dynamic method'),
                arrangeGrob(p11, top = 'Conventional method'),arrangeGrob(p22, top = 'Conventional method'),
                nrow=2,ncol=2)
   
-}
-##
-##
-fig_6 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975){
-  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
-                               "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
-  true_theta <- c(0.5,0.5,0.3,0.7)
-  out_f_sup <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
-                                                rand_assignment=c(1,1,1,1),
-                                                true_theta = true_theta,
-                                                prior_interest=list(c(26,26),c(1,1),c(1,1),c(1,1)), 
-                                                prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
-                                                trial_type = "sup",
-                                                drop_arm_type=drop_arm_type,
-                                                D0=D0,D1=D1,plot=FALSE)
-  p1 = plot_dynSS(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=80, label="Beta(26,26)")
-  p2 = plot_dynRand(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(26,26)")
-  out_f_sup <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
-                                                rand_assignment=c(1,1,1,1),
-                                                true_theta = true_theta,
-                                                prior_interest=list(c(42,10),c(1,1),c(1,1),c(1,1)), 
-                                                prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
-                                                trial_type = "sup",
-                                                drop_arm_type=drop_arm_type,
-                                                D0=D0,D1=D1,plot=FALSE)
-  p3 = plot_dynSS(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=80, label="Beta(42,10)")
-  p4 = plot_dynRand(dat=out_f_sup$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(42,10)")
-  #grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2,top = textGrob("Superiority trial (arm dropping for futility)",gp=gpar(fontsize=12,font=3)))
-  grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
-}
-##
-##
-fig_7 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=0.10){
-  safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
-                               "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
-  true_theta <- c(0.5,0.5,0.3,0.7)
-  out_f_noninf <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
-                                                   rand_assignment=c(1,1,1,1),
-                                                   true_theta = true_theta,
-                                                   prior_interest=list(c(26,26),c(1,1),c(1,1),c(1,1)), 
-                                                   prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
-                                                   trial_type = "noninf",
-                                                   margin_of_error = margin_of_error,
-                                                   drop_arm_type=drop_arm_type,
-                                                   D0=D0,D1=D1,plot=FALSE)
-  p1 = plot_dynSS(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=80, label="Beta(26,26)")
-  p2 = plot_dynRand(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(26,26)")
-  out_f_noninf <- trail_interim_binoEDSS_simulator(nSim=50, method="EDSS", n_sample=c(100,100,100),
-                                                   rand_assignment=c(1,1,1,1),
-                                                   true_theta = true_theta,
-                                                   prior_interest=list(c(42,10),c(1,1),c(1,1),c(1,1)), 
-                                                   prior_reference=list(c(1,1),c(1,1),c(1,1),c(1,1)),
-                                                   trial_type = "noninf",
-                                                   margin_of_error = margin_of_error,
-                                                   drop_arm_type=drop_arm_type,
-                                                   D0=D0,D1=D1,plot=FALSE)
-  p3 = plot_dynSS(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=80, label="Beta(42,10)")
-  p4 = plot_dynRand(dat=out_f_noninf$stat) + annotate(geom="text",x=115, y=0.6, label="Beta(42,10)")
-  #grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2,top = textGrob("Non-inferiority trial (arm dropping for futility)",gp=gpar(fontsize=12,font=3)))
-  grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
 }
 ##
 ##
