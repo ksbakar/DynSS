@@ -21,7 +21,8 @@ checkPkg <- function(package_list){
   }
 }
 checkPkg(package_list)
-  
+lapply(package_list, require, character.only = TRUE)
+
 ## some source functions 
 
 gen_data_arm <- function(n=c(300),rand_pr=NULL,n_arm=NULL){
@@ -1019,7 +1020,9 @@ plot_dynSSRand <- function(dat,true_theta){
   grid.arrange(p1,p2,p3,nrow=1,ncol=3)
 }
 ##
-fig_1 <- function(){
+
+
+fig_S1 <- function(){
   out1 <- EDSS_simulation(nSim=50,prior_interest=list(c(1,1),c(1,1)),plot=FALSE,cost="kld")
   out2 <- EDSS_simulation(nSim=50,prior_interest=list(c(5,5),c(1,1)),plot=FALSE,cost="kld")
   out3 <- EDSS_simulation(nSim=50,prior_interest=list(c(10,10),c(1,1)),plot=FALSE,cost="kld")
@@ -1037,7 +1040,7 @@ fig_1 <- function(){
   print(p)
 }
 ##
-fig_2 <- function(){
+fig_1 <- function(){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   true_theta = c(0.5,0.5)
@@ -1098,10 +1101,10 @@ fig_2 <- function(){
     labs(y="Estimated success",x="Total number of enrolments",color="Arm",shape="Arm") +
     scale_color_manual(values=safe_colorblind_palette)
   p33 <- p33 + annotate(geom="text",x=125, y=0.65, label="Beta(42,10)")
-  grid.arrange(p1,p11,p2,p22,p3,p33,nrow=3,ncol=2)
+  grid.arrange(p2,p22,p3,p33,nrow=2,ncol=2)
 }
 ##
-fig_3 <- function(){
+fig_S3 <- function(){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   true_theta = c(0.5,0.5)
@@ -1131,7 +1134,7 @@ fig_3 <- function(){
   grid.arrange(p_r1,p_r2,nrow=1,ncol=2)
 }
 ##
-fig_4 <- function(D=list(c(0.05,0.95))){
+fig_2 <- function(D=list(c(0.05,0.95))){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1216,7 +1219,7 @@ fig_4 <- function(D=list(c(0.05,0.95))){
                nrow=2,ncol=2)
 }
 ##
-fig_5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.1){
+fig_3 <- function(D=list(c(0.050,0.950)),margin_of_error=0.1){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                         "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1306,7 +1309,7 @@ fig_5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.1){
                                         
 }
 ##
-fig_6 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975){
+fig_4 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                         "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
                                         true_theta <- c(0.5,0.5,0.3,0.7)
@@ -1334,7 +1337,7 @@ fig_6 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975){
                                         grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
 }
 ##
-fig_7 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=0.10){
+fig_5 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=0.10){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                         "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
                                         true_theta <- c(0.5,0.5,0.3,0.7)
@@ -1365,7 +1368,7 @@ fig_7 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=
 }
 ##
 ##
-fig_S2 <- function(D=list(c(0.05,0.99))){
+fig_S4 <- function(D=list(c(0.05,0.99))){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1450,7 +1453,7 @@ fig_S2 <- function(D=list(c(0.05,0.99))){
                nrow=2,ncol=2)
 }
 ##
-fig_S3 <- function(D=list(c(0.050,0.950)),margin_of_error=0.01){
+fig_S5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.01){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
