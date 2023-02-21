@@ -1104,7 +1104,7 @@ fig_1 <- function(){
   grid.arrange(p2,p22,p3,p33,nrow=2,ncol=2)
 }
 ##
-fig_S3 <- function(){
+fig_S3_ <- function(){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   true_theta = c(0.5,0.5)
@@ -1368,7 +1368,7 @@ fig_5 <- function(drop_arm_type=c("futility"),D0=0.025,D1=0.975,margin_of_error=
 }
 ##
 ##
-fig_S4 <- function(D=list(c(0.05,0.99))){
+fig_S3 <- function(D=list(c(0.05,0.99))){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
@@ -1453,7 +1453,7 @@ fig_S4 <- function(D=list(c(0.05,0.99))){
                nrow=2,ncol=2)
 }
 ##
-fig_S5 <- function(D=list(c(0.050,0.950)),margin_of_error=0.01){
+fig_S4 <- function(D=list(c(0.050,0.950)),margin_of_error=0.01){
   safe_colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
                                "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
   n_sample <- c(100,100,100)
